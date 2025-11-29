@@ -10,6 +10,8 @@ repositories {
 }
 
 dependencies {
+    implementation("io.ktor:ktor-client-core:3.3.2")
+    implementation("io.ktor:ktor-client-cio:3.3.2")
     testImplementation(kotlin("test"))
 }
 
