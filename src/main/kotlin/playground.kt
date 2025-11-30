@@ -1,67 +1,88 @@
-
-import java.io.File
-import java.security.KeyFactory
-import java.security.MessageDigest
-import java.security.PrivateKey
-import java.security.Signature
-import java.security.interfaces.RSAPrivateKey
-import java.security.spec.PKCS8EncodedKeySpec
-import java.util.*
 import io.ktor.client.*
+import io.ktor.client.call.body
 import io.ktor.client.engine.cio.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
-import kotlinx.coroutines.delay
+import org.bouncycastle.jce.provider.BouncyCastleProvider
+import org.bouncycastle.openssl.PEMKeyPair
+import org.bouncycastle.openssl.PEMParser
+import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter
+import java.io.FileReader
+import java.nio.charset.StandardCharsets
+import java.security.PrivateKey
+import java.security.Security
+import java.security.Signature
+import java.security.spec.MGF1ParameterSpec
+import java.security.spec.PSSParameterSpec
+import java.util.*
 
+val FILE_PATH = "src/main/kotlin/keys/private_key.pem"
+// FIX 1: Add the leading slash to match the Python path input
+const val URL_PATH = "/trade-api/v2/portfolio/balance"
+const val API_KEY = "8b52c74c-468c-440e-836c-96cb78ba2b91"
+const val BASE_URL = "https://api.elections.kalshi.com" // Removed trailing slash here to avoid double slash later
 
-const val FILE_PATH = "src/keys/private_key.txt"
-const val API_KEY = "7e456ed4-ef02-4f81-b0d0-df4094ebac1f"
-
-fun loadPrivateKey() : RSAPrivateKey{
-    // read the file as a string
-    val keyString = File("sample.txt").readText()
-    val privateKeyPEM = keyString
-        .replace("-----BEGIN RSA PRIVATE KEY-----", "")
-        .replace(System.lineSeparator(), "")
-        .replace("-----END RSA PRIVATE KEY-----", "")
-
-
-    val decoded = Base64.getDecoder().decode(privateKeyPEM)
-
-    val keyFactory = KeyFactory.getInstance("RSA")
-    val keySpec = PKCS8EncodedKeySpec(decoded)
-    return keyFactory.generatePrivate(keySpec) as RSAPrivateKey
+fun loadPrivateKey(filePath: String): PrivateKey {
+    val pemParser = PEMParser(FileReader(filePath, StandardCharsets.UTF_8))
+    val converter = JcaPEMKeyConverter().setProvider("BC")
+    val obj = pemParser.readObject()
+    // Handle case where PEM might be encrypted or purely a key pair
+    if (obj is PEMKeyPair) {
+        return converter.getKeyPair(obj).private
+    }
+    throw IllegalArgumentException("Parsed object is not a PEMKeyPair: ${obj::class.java}")
 }
 
-fun createSignature(privateKey: PrivateKey, timeStamp: Long, method: String, path: String) : String{
-    val pathWithoutQuery = path.split("/")[0]
+fun createSignature(privateKey: PrivateKey, timeStamp: Long, method: String, path: String): String {
+    val pathWithoutQuery = path.split("?")[0]
     val message = "$timeStamp$method$pathWithoutQuery"
 
-    val digest = MessageDigest.getInstance("SHA-256")
-    val hashedData = digest.digest(message.encodeToByteArray())
+    // FIX 2: Explicitly configure PSS Parameters to match Python
+    val signer = Signature.getInstance("SHA256withRSA/PSS", "BC")
 
-    val signature: Signature = Signature.getInstance("SHA256withRSA")
-    signature.initSign(privateKey)
-    signature.update(hashedData)
-    val signedHash: ByteArray? = signature.sign()
-    return signedHash?.decodeToString() ?: ""
+    // Python's padding.PSS.DIGEST_LENGTH means salt length = hash length (32 for SHA256)
+    val params = PSSParameterSpec(
+        "SHA-256",
+        "MGF1",
+        MGF1ParameterSpec.SHA256,
+        32, // Salt length must be 32 bytes
+        1   // Trailer field (usually 1)
+    )
+
+    signer.setParameter(params)
+    signer.initSign(privateKey)
+    signer.update(message.toByteArray(StandardCharsets.UTF_8))
+
+    return Base64.getEncoder().encodeToString(signer.sign())
 }
 
+suspend fun get(privateKey: PrivateKey, apkKey: String, path: String) {
+    val timestamp = System.currentTimeMillis()
+    val signature = createSignature(privateKey, timestamp, "GET", path)
 
-suspend fun get(privateKey: PrivateKey, apkKey: String, path: String){
-//    val timestamp = System.currentTimeMillis()
-//    val signature = createSignature(privateKey, timestamp, "GET", path)
-//    println(signature)
+    println("Requesting: $BASE_URL$path")
+    println("Signature payload: $timestamp" + "GET" + path)
+
     val client = HttpClient(CIO)
-    val response: HttpResponse = client.get("https://ktor.io/")
-    println(response.status)
-    client.close()
+    try {
+        val response: HttpResponse = client.get(BASE_URL + path) {
+            headers {
+                append("KALSHI-ACCESS-KEY", API_KEY)
+                append("KALSHI-ACCESS-SIGNATURE", signature)
+                append("KALSHI-ACCESS-TIMESTAMP", timestamp.toString())
+            }
+        }
+        println("Status: ${response.status}")
+        println("Body: ${response.body<String>()}")
+    } catch (e: Exception) {
+        println("Error: ${e.message}")
+    } finally {
+        client.close()
+    }
 }
 
-
-suspend fun main(){
-    val privateKey = loadPrivateKey()
-    get(privateKey, API_KEY, "/trade-api/v2/portfolio/balance")
-//    delay(100L)
-//    println("hey")
+suspend fun main() {
+    Security.addProvider(BouncyCastleProvider())
+    val privateKey = loadPrivateKey(FILE_PATH)
+    get(privateKey, API_KEY, URL_PATH)
 }
