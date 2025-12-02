@@ -9,6 +9,7 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.bouncycastle.openssl.PEMKeyPair
 import org.bouncycastle.openssl.PEMParser
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter
+import java.io.File
 import java.io.FileReader
 import java.nio.charset.StandardCharsets
 import java.security.PrivateKey
@@ -25,7 +26,8 @@ const val API_KEY = "8b52c74c-468c-440e-836c-96cb78ba2b91"
 const val BASE_URL = "https://api.elections.kalshi.com" // Removed trailing slash here to avoid double slash later
 
 fun loadPrivateKey(filePath: String): PrivateKey {
-    val pemParser = PEMParser(FileReader(filePath, StandardCharsets.UTF_8))
+    val privateKeyStrign = File(filePath).readText()
+    val pemParser = PEMParser(privateKeyStrign.reader())
     val converter = JcaPEMKeyConverter().setProvider("BC")
     val obj = pemParser.readObject()
     // Handle case where PEM might be encrypted or purely a key pair
