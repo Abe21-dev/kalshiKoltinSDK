@@ -1,10 +1,12 @@
 package com.kalshikotlinsdk.auth
 
+import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.bouncycastle.openssl.PEMKeyPair
 import org.bouncycastle.openssl.PEMParser
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter
 import java.nio.charset.StandardCharsets
 import java.security.PrivateKey
+import java.security.Security
 import java.security.Signature
 import java.security.spec.MGF1ParameterSpec
 import java.security.spec.PSSParameterSpec
@@ -16,7 +18,9 @@ enum class ApiRequestType{
 }
 
 class KalshiAuth(val privateApiKey: String, val apiKeyId: String){
-
+    init {
+        Security.addProvider(BouncyCastleProvider())
+    }
     private val privateKey = loadPrivateKey()
     private fun loadPrivateKey(): PrivateKey {
         val pemParser = PEMParser(privateApiKey.reader())
@@ -52,7 +56,7 @@ class KalshiAuth(val privateApiKey: String, val apiKeyId: String){
     }
 
 
-    fun getApiHeader(filePath: String, apiRequestType: ApiRequestType, path: String): Map<String, String> {
+    fun getApiHeader(apiRequestType: ApiRequestType, path: String): Map<String, String> {
         val timestamp = System.currentTimeMillis()
         val signature = createSignature(privateKey, timestamp, apiRequestType.toString(), path)
         val headers = mapOf("KALSHI-ACCESS-KEY" to apiKeyId,
@@ -61,15 +65,6 @@ class KalshiAuth(val privateApiKey: String, val apiKeyId: String){
         return headers
     }
 }
-
-class a(var invalu: Int){
-    private val b = someFun()
-
-    fun someFun(): Int{
-        return invalu++
-    }
-}
-
 
 
 

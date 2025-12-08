@@ -1,9 +1,11 @@
 package com.kalshikotlinsdk
 
+import com.kalshikotlinsdk.service.ExchangeService
 import io.ktor.client.*
 import io.ktor.client.call.body
 import io.ktor.client.engine.cio.*
 import io.ktor.client.request.*
+import io.ktor.client.request.invoke
 import io.ktor.client.statement.*
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.bouncycastle.openssl.PEMKeyPair
@@ -18,6 +20,11 @@ import java.security.Signature
 import java.security.spec.MGF1ParameterSpec
 import java.security.spec.PSSParameterSpec
 import java.util.*
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter.*
+import java.time.format.DateTimeFormatter
+import kotlin.text.format
+
 
 val FILE_PATH = "src/main/kotlin/keys/private_key.pem"
 // FIX 1: Add the leading slash to match the Python path input
@@ -86,7 +93,8 @@ suspend fun get(privateKey: PrivateKey, apkKey: String, path: String) {
 }
 
 suspend fun main() {
-    Security.addProvider(BouncyCastleProvider())
-    val privateKey = loadPrivateKey(FILE_PATH)
-    get(privateKey, API_KEY, URL_PATH)
+
+    val client = KalshiClient("src/main/kotlin/keys/private_key.pem", "API_KEY")
+    val exchangeService = ExchangeService(client)
+    println(exchangeService.getExchangeStatus())
 }
