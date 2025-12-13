@@ -2,15 +2,21 @@ package com.kalshikotlinsdk
 
 import com.kalshikotlinsdk.auth.ApiRequestType
 import com.kalshikotlinsdk.auth.KalshiAuth
+import com.kalshikotlinsdk.model.KalshiResult
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.HttpClientEngine
-import io.ktor.client.engine.cio.CIO
+import io.ktor.client.plugins.ResponseException
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json
 import java.io.File
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
-class KalshiClient(engine: HttpClientEngine, val privateKeyPath: String = "", val apiKeyId: String = "") {
+class KalshiClient(
+    engine: HttpClientEngine,
+    val privateKeyPath: String = "",
+    val apiKeyId: String = "",
+) {
 
     val client by lazy {
         HttpClient(engine) {
@@ -33,4 +39,15 @@ class KalshiClient(engine: HttpClientEngine, val privateKeyPath: String = "", va
         return kalshiAuth.getApiHeader(requestType, "")
     }
 
+    fun handleExceptionType(e: Exception) =
+        when (e) {
+            is ResponseException ->
+                KalshiResult.Failure.HttpError(
+                    code = e.response.status.value,
+                    msg = e.response.status.description,
+                    e = e,
+                )
+            is SerializationException -> KalshiResult.Failure.SerializationError(e)
+            else -> KalshiResult.Failure.Error(e)
+        }
 }

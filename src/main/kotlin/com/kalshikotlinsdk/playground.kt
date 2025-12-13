@@ -89,14 +89,8 @@ suspend fun get(privateKey: PrivateKey, apkKey: String, path: String) {
 }
 
 suspend fun main() {
-
     val client = KalshiClient(CIO.create(),"src/main/kotlin/keys/private_key.pem", API_KEY)
     val exchangeService = ExchangeService(client)
-//    println(exchangeService.exchangeStatus())
-//    println(exchangeService.exchangeAnnouncements())
-//    println(exchangeService.seriesFeeChange(showHistorical = true))
-//    print(exchangeService.exchangeSchedule())
-    print(exchangeService.userDataTimeStamp())
 }
 
 
