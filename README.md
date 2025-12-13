@@ -8,3 +8,8 @@ service
 model
     ExChangeRequest
     ExchangeResponse
+
+
+add response generalized types 
+add testing 
+add orders api
