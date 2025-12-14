@@ -7,6 +7,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.plugins.ResponseException
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.serialization.JsonConvertException
 import io.ktor.serialization.kotlinx.json.json
 import java.io.File
 import kotlinx.serialization.SerializationException
@@ -47,7 +48,7 @@ class KalshiClient(
                     msg = e.response.status.description,
                     e = e,
                 )
-            is SerializationException -> KalshiResult.Failure.SerializationError(e)
+            is SerializationException, is JsonConvertException -> KalshiResult.Failure.SerializationError(e)
             else -> KalshiResult.Failure.NetworkError(e)
         }
 }
