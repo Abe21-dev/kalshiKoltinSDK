@@ -48,6 +48,6 @@ class KalshiClient(
                     e = e,
                 )
             is SerializationException -> KalshiResult.Failure.SerializationError(e)
-            else -> KalshiResult.Failure.Error(e)
+            else -> KalshiResult.Failure.NetworkError(e)
         }
 }
